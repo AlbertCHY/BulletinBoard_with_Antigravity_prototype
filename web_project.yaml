@@ -1,0 +1,148 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ops-dashboard
+
+---
+# ===========================
+# 1. 資料庫儲存設定
+# ===========================
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: ops-db-pv
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/data/ops-dashboard-db" # 記得在目標節點建立此資料夾
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ops-db-pvc
+  namespace: ops-dashboard
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+# ===========================
+# 2. Backend (後端)
+# ===========================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: ops-dashboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      # 鎖定在指定節點 (因為 SQLite hostPath 資料庫檔案位於該節點)
+      nodeSelector:
+        kubernetes.io/hostname: <YOUR_NODE_HOSTNAME>
+      containers:
+        - name: backend
+          # 使用手動 load 進去的本地 image 名稱
+          image: docker.io/library/web_project-backend:v1
+          # 僅使用本地 Image，不嘗試連網拉取
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8000
+          env:
+            - name: DATABASE_URL
+              value: "sqlite+aiosqlite:////data/ops_board.db"
+            # 正式環境請透過 K8s Secret 注入以下環境變數：
+            # - name: SECRET_KEY
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: ops-dashboard-secret
+            #       key: secret-key
+            # - name: ADMIN_USER
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: ops-dashboard-secret
+            #       key: admin-user
+            # - name: ADMIN_PASSWORD
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: ops-dashboard-secret
+            #       key: admin-password
+          volumeMounts:
+            - mountPath: /data
+              name: db-storage
+      volumes:
+        - name: db-storage
+          persistentVolumeClaim:
+            claimName: ops-db-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: ops-dashboard
+spec:
+  selector:
+    app: backend
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+  type: ClusterIP
+
+---
+# ===========================
+# 3. Frontend (前端)
+# ===========================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: ops-dashboard
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          # [修改點] 前端 Image
+          image: docker.io/library/web_project-frontend:v1
+          # [關鍵修改] 只用本地 Image
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: ops-dashboard
+spec:
+  selector:
+    app: frontend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+      nodePort: 30080 # [Windows 訪問入口] 固定開這個 Port
+  type: NodePort

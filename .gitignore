@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.vscode/
+node_modules/
+dist/
+milestone*
+*.db
+data/
+.env
+*.tar
+.DS_Store

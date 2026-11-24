@@ -1,0 +1,22 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: always
+    volumes:
+      - ./data:/data
+    environment:
+      - DATABASE_URL=${DEFAULT_DATABASE_URL}
+      - ADMIN_USER=${DEFAULT_ADMIN_USER}
+      - ADMIN_PASSWORD=${DEFAULT_ADMIN_PASSWORD}
+      - SECRET_KEY=${DEFAULT_SECRET_KEY}
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "8080:80"
+    restart: always
+    depends_on:
+      - backend

@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+sqlmodel
+aiosqlite
+python-jose[cryptography]
+passlib[argon2]
+python-multipart
+pydantic-settings

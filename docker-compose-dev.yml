@@ -1,0 +1,17 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: always
+    volumes:
+      - ./data:/data
+      - ./backend:/app/backend #dev mode
+    environment:
+      - DATABASE_URL=${DEFAULT_DATABASE_URL}
+      - ADMIN_USER=${DEFAULT_ADMIN_USER}
+      - ADMIN_PASSWORD=${DEFAULT_ADMIN_PASSWORD}
+      - SECRET_KEY=${DEFAULT_SECRET_KEY}
+    command: uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload #dev mode
+    ports:
+      - "8000:8000" #dev mode
